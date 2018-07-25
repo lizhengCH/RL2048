@@ -3,6 +3,7 @@
 # @Version : 1.0
 # @Document: RL2048.ipynb
 import time
+import pickle
 import numpy as np
 import pandas as pd
 
@@ -112,18 +113,6 @@ class SaveData:
         else:
             raise ValueError('"action" should in ["top", "left", "bottom", "right"]')
         return move_map
-
-    @classmethod
-    def score_get(cls, MODE, state):
-        table = state.iloc[1:MODE + 1, 1:MODE + 1].values
-
-        score, zero = 0, 0
-        for i in range(MODE):
-            for j in range(MODE):
-                if table[i, j] != 0:
-                    score += table[i, j] ** 2
-
-        return score
 
     @classmethod
     def predict_state(cls, MODE, action, input_state):
@@ -237,8 +226,11 @@ class SaveData:
         self.state = next_state
         self.refresh_canvas(canvas)
 
-        score = self.score_get(self.MODE, self.state)
+        score = np.sum((self.state.values[1:-1, 1:-1] // 4) ** 2)
         label["text"] = 'Score: ' + str(score)
+
+        with open(r'./SaveData.dat', 'wb') as f:
+            pickle.dump(self.state, f)
 
     def refresh_panel(self, canvas, label):
         init_ids = np.random.choice(self.MODE, 4, replace=False)
@@ -254,3 +246,6 @@ class SaveData:
 
         self.refresh_canvas(canvas)
         label["text"] = 'Score: '
+
+        with open(r'./SaveData.dat', 'wb') as f:
+            pickle.dump(self.state, f)

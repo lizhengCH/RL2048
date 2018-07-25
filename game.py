@@ -4,6 +4,7 @@
 # @Document: RL2048.ipynb
 import tkinter as tk
 import data_utils
+import rl_utils
 
 
 WIDTH, HIGHT = 300, 400
@@ -57,7 +58,9 @@ refresh = tk.Button(
 refresh.grid(row=1, column=2)
 
 auto_icon = tk.PhotoImage(file='./icon/auto.gif')
-auto = tk.Button(frame, command=lambda: None, relief='flat', image=auto_icon)
+auto = tk.Button(
+    frame, command=lambda: data.update_panel(canvas, score_label, rl_utils.choose_activate(data)),
+    relief='flat', image=auto_icon)
 auto.grid(row=1, column=3)
 
 window.mainloop()

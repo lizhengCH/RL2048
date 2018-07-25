@@ -25,41 +25,10 @@ color_bar = {
 }
 
 
-def build_grid(WIDTH, MODE, SPACING, canvas):
-    width = (WIDTH - (MODE + 1) * SPACING) / MODE
-    theta_1 = np.linspace(0, np.pi/2, num=11, endpoint=True)
-    edge_1 = SPACING * np.hstack((np.cos(theta_1).reshape(-1, 1), np.sin(theta_1).reshape(-1, 1)))
-    edge_1 += np.array([width / 2 - SPACING, width / 2 - SPACING])
-
-    theta_2 = np.linspace(np.pi/2, np.pi, num=11, endpoint=True)
-    edge_2 = SPACING * np.hstack((np.cos(theta_2).reshape(-1, 1), np.sin(theta_2).reshape(-1, 1)))
-    edge_2 += np.array([-width / 2 + SPACING, width / 2 - SPACING])
-
-    theta_3 = np.linspace(np.pi, np.pi*3/2, num=11, endpoint=True)
-    edge_3 = SPACING * np.hstack((np.cos(theta_3).reshape(-1, 1), np.sin(theta_3).reshape(-1, 1)))
-    edge_3 += np.array([-width / 2 + SPACING, -width / 2 + SPACING])
-
-    theta_4 = np.linspace(np.pi*3/2, np.pi*2, num=11, endpoint=True)
-    edge_4 = SPACING * np.hstack((np.cos(theta_4).reshape(-1, 1), np.sin(theta_4).reshape(-1, 1)))
-    edge_4 += np.array([width / 2 - SPACING, -width / 2 + SPACING])
-
-    edge = np.vstack((edge_1, edge_2, edge_3, edge_4))
-
-    grid = np.linspace(-width / 2, WIDTH + SPACING / 2 + width / 2, num=MODE + 2, endpoint=True)
-    grid = {key: value for key, value in zip(list(range(-1, MODE + 2)), grid)}
-
-    for i in range(MODE):
-        for j in range(MODE):
-            rect = (edge + np.array([grid[i], grid[j]])).reshape(-1)
-            canvas.create_polygon(*rect, fill='DarkGray')
-
-    unit = width + SPACING
-    return grid, unit, edge
-
-
 class SaveData:
-    def __init__(self, MODE, FRAMES, PAUSE):
+    def __init__(self, WIDTH, MODE, SPACING, FRAMES, PAUSE):
         self.MODE = MODE
+        self.edge, self.grid, self.unit = self.build_units(WIDTH, MODE, SPACING)
         self.FRAMES = FRAMES
         self.PAUSE = PAUSE
 
@@ -75,6 +44,33 @@ class SaveData:
         self.state.loc[init_ids[2], init_ids[3]] = 2
 
         self.collection = {}
+
+    @staticmethod
+    def build_units(WIDTH, MODE, SPACING):
+        width = (WIDTH - (MODE + 1) * SPACING) / MODE
+        theta_1 = np.linspace(0, np.pi/2, num=11, endpoint=True)
+        edge_1 = SPACING * np.hstack((np.cos(theta_1).reshape(-1, 1), np.sin(theta_1).reshape(-1, 1)))
+        edge_1 += np.array([width / 2 - SPACING, width / 2 - SPACING])
+
+        theta_2 = np.linspace(np.pi/2, np.pi, num=11, endpoint=True)
+        edge_2 = SPACING * np.hstack((np.cos(theta_2).reshape(-1, 1), np.sin(theta_2).reshape(-1, 1)))
+        edge_2 += np.array([-width / 2 + SPACING, width / 2 - SPACING])
+
+        theta_3 = np.linspace(np.pi, np.pi*3/2, num=11, endpoint=True)
+        edge_3 = SPACING * np.hstack((np.cos(theta_3).reshape(-1, 1), np.sin(theta_3).reshape(-1, 1)))
+        edge_3 += np.array([-width / 2 + SPACING, -width / 2 + SPACING])
+
+        theta_4 = np.linspace(np.pi*3/2, np.pi*2, num=11, endpoint=True)
+        edge_4 = SPACING * np.hstack((np.cos(theta_4).reshape(-1, 1), np.sin(theta_4).reshape(-1, 1)))
+        edge_4 += np.array([width / 2 - SPACING, -width / 2 + SPACING])
+
+        edge = np.vstack((edge_1, edge_2, edge_3, edge_4))
+
+        grid = np.linspace(-width / 2, WIDTH + SPACING / 2 + width / 2, num=MODE + 2, endpoint=True)
+        grid = {key: value for key, value in zip(list(range(-1, MODE + 2)), grid)}
+
+        unit = width + SPACING
+        return edge, grid, unit
 
     @classmethod
     def table_get(cls, MODE, action, state):
@@ -173,7 +169,7 @@ class SaveData:
                 collection.append(j)
         if collection:
             ind = np.random.choice(np.array(collection), 1)[0]
-            num = np.random.choice(np.array([2, 4]), 1)
+            num = np.random.choice(np.array([2, 4]), 1, p=[0.7, 0.3])
             next_table[-1, ind] = num
             cls.move_map_element(MODE, move_map, ind, MODE, MODE - 1, action)
 
@@ -197,7 +193,14 @@ class SaveData:
 
         return state, next_state, move_map
 
-    def refresh_canvas(self, canvas, edge, grid):
+    def build_background(self, canvas):
+        for i in range(self.MODE):
+            for j in range(self.MODE):
+                rect = (self.edge + np.array([self.grid[i], self.grid[j]])).reshape(-1)
+                canvas.create_polygon(*rect, fill='DarkGray')
+        self.refresh_canvas(canvas)
+
+    def refresh_canvas(self, canvas):
         for value in self.collection.values():
             canvas.delete(value[0])
             canvas.delete(value[1])
@@ -205,22 +208,22 @@ class SaveData:
         for i in range(-1, self.MODE+1):
             for j in range(-1, self.MODE+1):
                 if self.state.loc[i, j] != 0:
-                    rect = (edge + np.array([grid[j], grid[i]])).reshape(-1)
+                    rect = (self.edge + np.array([self.grid[j], self.grid[i]])).reshape(-1)
                     element = canvas.create_polygon(
                         *rect, fill=color_bar[self.state.loc[i, j]], tag='{},{}'.format(i, j))
-                    text = canvas.create_text(
-                        grid[j], grid[i], text=str(self.state.loc[i, j]), fill='White', tag='{}.{}'.format(i, j))
+                    text = canvas.create_text(self.grid[j], self.grid[i], text=str(self.state.loc[i, j]),
+                                              fill='White', tag='{}.{}'.format(i, j))
                     self.collection[(i, j)] = element, text
 
-    def update_panel(self, canvas, label, edge, grid, action):
+    def update_panel(self, canvas, label, action):
         state, next_state, move_map = self.predict_state(self.MODE, action, self.state)
         self.state = state
-        self.refresh_canvas(canvas, edge, grid)
+        self.refresh_canvas(canvas)
 
         move_message = {}
         for key, value in move_map.items():
-            d_i = (grid[value[0]] - grid[key[0]]) / self.FRAMES
-            d_j = (grid[value[1]] - grid[key[1]]) / self.FRAMES
+            d_i = (self.grid[value[0]] - self.grid[key[0]]) / self.FRAMES
+            d_j = (self.grid[value[1]] - self.grid[key[1]]) / self.FRAMES
             move_message['{},{}'.format(key[0], key[1])] = (d_i, d_j)
 
         for i in range(self.FRAMES):
@@ -232,12 +235,12 @@ class SaveData:
                 time.sleep(self.PAUSE)
 
         self.state = next_state
-        self.refresh_canvas(canvas, edge, grid)
+        self.refresh_canvas(canvas)
 
         score = self.score_get(self.MODE, self.state)
         label["text"] = 'Score: ' + str(score)
 
-    def refresh_panel(self, canvas, label, edge, grid):
+    def refresh_panel(self, canvas, label):
         init_ids = np.random.choice(self.MODE, 4, replace=False)
         while init_ids[0] == init_ids[2] and init_ids[1] == init_ids[3]:
             init_ids = np.random.choice(self.MODE, 4, replace=False) + 1
@@ -249,19 +252,5 @@ class SaveData:
         self.state.loc[init_ids[0], init_ids[1]] = 2
         self.state.loc[init_ids[2], init_ids[3]] = 2
 
-        self.refresh_canvas(canvas, edge, grid)
+        self.refresh_canvas(canvas)
         label["text"] = 'Score: '
-
-
-def build_canvas(WIDTH, MODE, SPACING, FRAMES, PAUSE, canvas, label):
-    grid, unit, edge = build_grid(WIDTH, MODE, SPACING, canvas)
-    data = SaveData(MODE, FRAMES, PAUSE)
-    data.refresh_canvas(canvas, edge, grid)
-
-    def update_panel(action):
-        data.update_panel(canvas, label, edge, grid, action)
-
-    def refresh_panel():
-        data.refresh_panel(canvas, label, edge, grid)
-
-    return update_panel, refresh_panel
